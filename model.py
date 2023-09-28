@@ -4,15 +4,30 @@ import torch.nn as nn
 from torchvision.models import inception_v3, Inception_V3_Weights
 
 from custom import Identity
-# probably gonna use InceptionV3 as classifier
 
 
-# deleting the last FC layer (not sure about the dropout tho) since we need the cnn features
-classifier = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
-classifier.dropout = Identity()
-classifier.fc = Identity()
-x = torch.rand(1, 3, 299, 299)
-classifier.eval()
-print(classifier(x).shape)
+class attention_based_captioner(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-# TODO add the detector and decoder
+        # probably gonna use InceptionV3 as classifier
+        # deleting the last FC layer (not sure about the dropout tho) since we need the cnn features
+        self.cnn_extractorr = inception_v3(
+            weights=Inception_V3_Weights.IMAGENET1K_V1)
+        self.cnn_extractorr.dropout = Identity()
+        self.cnn_extractorr.fc = Identity()
+        # TODO freeze the extractor bc it's trained already
+
+        self.detector = None  # TODO add
+        self.embedding = nn.Linear(2048, 256)  # eh?
+        self.decoder = None  # TODO add
+
+    def forward(self, x):
+        cnn_features = self.detector(x)
+        # prolly will need to change it depending on the shape (to apply IF and make concat possible)
+        detector_features = self.detector(x)  # TODO apply importance factor
+
+        image_info = torch.concat(cnn_features, detector_features)
+        image_info = self.embedding(image_info)
+        # TODO attention factor
+        return self.decoder(image_info)  # ?

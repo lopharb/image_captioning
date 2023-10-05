@@ -160,5 +160,9 @@ cython_debug/
 #.idea/
 .vscode/
 
-# it's avaliable in another git repo
+# local files, datasets etc.
 data/
+# yolo weights loaded by torch
+yolov5s.pt
+# my own development notes
+plans.md

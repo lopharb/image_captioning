@@ -16,6 +16,12 @@ class Decoder(nn.Module):
         pass
 
 
+convert_tensor = transforms.Compose(  # seems to be alright for both models
+    [transforms.Resize((1280, 1280)),
+     transforms.ToTensor()]
+)
+
+
 class attention_based_captioner(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -41,25 +47,31 @@ class attention_based_captioner(nn.Module):
 
         self.decoder = None  # TODO add
 
-    def forward(self, x):
-        cnn_features = self.detector(x)
+    def forward(self, x: Image):
+        x_tens = convert_tensor(x)
+        c, h, w = x_tens.shape  # h and w should be multiples of 32 so need to reshape
+        cnn_features = self.cnn_extractor(x_tens.view(-1, c, h, w))
 
-        detections = self.detector(x)  # TODO apply importance factor
         # for each image we need its width, height, confidence and class
         # (indexes 2-5 in .xywh)
 
-        tmp = detections.xywh[0].permute(1, 0)  # TODO fix for batched input
+        detections = self.detector(x)  # TODO apply importance factor
+        tmp = detections.xywh[0].permute(
+            1, 0)  # TODO fix for batched input
         importances = tmp[2]*tmp[3]*tmp[4]
-        print(importances)
+        print(detections.xywh[0].shape, importances.shape)
+        concatted = torch.concat(
+            [detections.xywh[0], importances.view(importances.shape[0], -1)], dim=1)
+        return concatted
+        # concatted is: x_center, y_center, width, height, confidence, class_id, importance factor
 
 
-image_path = 'smth'
-img = Image.open(image_path)
-convert_tensor = transforms.Compose(  # seems to be alright for both models
-    [transforms.Resize((640, 640)),
-     transforms.ToTensor()]
-)
-model = attention_based_captioner()
-tens = convert_tensor(img)
-c, h, w = tens.shape  # h and w should be multiples of 32 so need to reshape
-model(tens.view(-1, c, h, w))
+if __name__ == '__main__':
+    model = attention_based_captioner()
+    transf = transforms.Compose(  # seems to be alright for both models
+        [transforms.Resize((640, 640))]
+    )
+    img = 'data/bicycle.jpg'
+    img = transf(Image.open(img))
+    res = model(img)
+    print(res)
